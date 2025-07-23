@@ -232,8 +232,8 @@ async def pull_llama(request: OllamaPullRequest):
     print("Pulling " + request.model)
     try:
         response = ollama.pull(request.model)
-    except ollama.ResponseError as e:
-        print('Error:', e.error)
+    except Exception as e:
+        print('Error:', str(e))
         raise HTTPException(status_code=500, detail="Failed to pull Llama model from Ollama API")
 
     return {"status": response.get("status", "Model pulled successfully")}
@@ -250,12 +250,8 @@ async def generate_llama(request: OllamaGenerateRequest):
 
     try:
         response = ollama.generate(request.model, request.prompt)
-    except ollama.ResponseError as e:
-        print('Error:', e.error)
-        if e.status_code == 404:
-            print("Error: ", e.error)
-            ollama.pull(request.model)
-
+    except Exception as e:
+        print('Error:', str(e))
         raise HTTPException(status_code=500, detail="Failed to generate text with Ollama API")
 
     generated_text = response.get("response", "")

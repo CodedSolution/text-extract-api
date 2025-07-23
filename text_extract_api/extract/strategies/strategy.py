@@ -7,7 +7,7 @@ from typing import Type, Dict
 
 from pydantic.v1.typing import get_class
 
-from extract.extract_result import ExtractResult
+from text_extract_api.extract.extract_result import ExtractResult
 from text_extract_api.files.file_formats.file_format import FileFormat
 
 class Strategy:
