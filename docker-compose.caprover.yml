@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  $$cap_appname:
+    build: .
+    environment:
+      - APP_TYPE=fastapi
+      - APP_ENV=production
+      - CELERY_BROKER_URL=$$cap_redis_url
+      - CELERY_RESULT_BACKEND=$$cap_redis_url
+      - REDIS_CACHE_URL=$$cap_redis_cache_url
+      - OLLAMA_HOST=$$cap_ollama_host
+      - STORAGE_PROFILE_PATH=/app/storage_profiles
+      - LIST_FILES_URL=$$cap_list_files_url
+      - LOAD_FILE_URL=$$cap_load_file_url
+      - DELETE_FILE_URL=$$cap_delete_file_url
+      - REMOTE_API_URL=$$cap_remote_api_url
+    volumes:
+      - $$cap_appname-storage:/app/storage
+      - $$cap_appname-uploads:/app/uploads
+    depends_on:
+      - $$cap_appname-redis
+      - $$cap_appname-celery
+      - $$cap_appname-ollama
+    restart: unless-stopped
+
+  $$cap_appname-celery:
+    build: .
+    environment:
+      - APP_TYPE=celery
+      - APP_ENV=production
+      - CELERY_BROKER_URL=$$cap_redis_url
+      - CELERY_RESULT_BACKEND=$$cap_redis_url
+      - OLLAMA_HOST=$$cap_ollama_host
+      - STORAGE_PROFILE_PATH=/app/storage_profiles
+      - LIST_FILES_URL=$$cap_list_files_url
+      - LOAD_FILE_URL=$$cap_load_file_url
+      - DELETE_FILE_URL=$$cap_delete_file_url
+    volumes:
+      - $$cap_appname-storage:/app/storage
+      - $$cap_appname-uploads:/app/uploads
+    depends_on:
+      - $$cap_appname-redis
+    restart: unless-stopped
+
+  $$cap_appname-redis:
+    image: redis:7.2.4-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - $$cap_appname-redis-data:/data
+    restart: unless-stopped
+
+  $$cap_appname-ollama:
+    image: ollama/ollama
+    volumes:
+      - $$cap_appname-ollama-data:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  $$cap_appname-storage:
+  $$cap_appname-uploads:
+  $$cap_appname-redis-data:
+  $$cap_appname-ollama-data:
