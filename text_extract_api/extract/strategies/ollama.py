@@ -9,7 +9,7 @@ from extract.extract_result import ExtractResult
 from text_extract_api.extract.strategies.strategy import Strategy
 from text_extract_api.files.file_formats.file_format import FileFormat
 from text_extract_api.files.file_formats.image import ImageFileFormat
-
+from ollama import ResponseError
 
 class OllamaStrategy(Strategy):
     """Ollama models OCR strategy"""
@@ -40,7 +40,7 @@ class OllamaStrategy(Strategy):
 
             # Generate text using the specified model
             try:
-                timeout = httpx.Timeout(connect=180.0, read=180.0, write=180.0, pool=180.0) # @todo move those values to .env
+                timeout = httpx.Timeout(connect=300.0, read=300.0, write=300.0, pool=300.0) # @todo move those values to .env
                 ollama = Client(timeout=timeout)
                 response = ollama.chat(self._strategy_config.get('model'), [{
                     'role': 'user',
@@ -63,7 +63,7 @@ class OllamaStrategy(Strategy):
 
                 ocr_percent_done += int(
                     20 / num_pages)  # 20% of work is for OCR - just a stupid assumption from tasks.py
-            except ollama.ResponseError as e:
+            except ResponseError as e:
                 print('Error:', e.error)
                 raise Exception("Failed to generate text with Ollama model " + self._strategy_config.get('model'))
 

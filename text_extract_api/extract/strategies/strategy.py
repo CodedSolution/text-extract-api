@@ -5,18 +5,18 @@ import importlib
 import pkgutil
 from typing import Type, Dict
 
-from pydantic.v1.typing import get_class
-
 from extract.extract_result import ExtractResult
 from text_extract_api.files.file_formats.file_format import FileFormat
 
-class Strategy:
-    _strategies: Dict[str, Strategy] = {}
-    _strategy_config: Dict[str, Dict] = {}
 
-    def __init__(self):
-        self.update_state_callback = None
-        self._strategy_config = None
+class Strategy:
+    # ✅ Add missing class-level attributes
+    _strategies: Dict[str, Strategy] = {}
+    _strategy_config_map: Dict[str, dict] = {}
+
+    def __init__(self, strategy_config=None, update_state_callback=None):
+        self._strategy_config = strategy_config or {}
+        self.update_state_callback = update_state_callback or (lambda **kwargs: None)
 
     def set_strategy_config(self, config: Dict):
         self._strategy_config = config
@@ -30,27 +30,17 @@ class Strategy:
 
     @classmethod
     def name(cls) -> str:
-        raise NotImplementedError("Strategy subclasses must implement name")
+        raise NotImplementedError("Strategy subclasses must implement name()")
+
+    def extract_text(self, file_format: FileFormat, language: str = 'en') -> ExtractResult:
+        raise NotImplementedError("Strategy subclasses must implement extract_text()")
 
     @classmethod
-    def extract_text(cls, file_format: Type["FileFormat"], language: str = 'en') -> ExtractResult:
-        raise NotImplementedError("Strategy subclasses must implement extract_text method")
-
-    @classmethod
-    def get_strategy(cls, name: str) -> Type["Strategy"]:
+    def get_strategy(cls, name: str) -> Strategy:
         """
-        Fetches and returns a registered strategy class based on the given name.
-
-        Args:
-            name: The name of the strategy to fetch.
-
-        Returns:
-            The strategy class corresponding to the provided name.
-
-        Raises:
-            ValueError: If the specified strategy name does not exist among the registered strategies.
+        Returns the registered strategy instance by name.
+        Auto-loads from config or autodiscovers if not yet registered.
         """
-
         if name not in cls._strategies:
             cls.load_strategies_from_config()
 
@@ -64,14 +54,19 @@ class Strategy:
         return cls._strategies[name]
 
     @classmethod
-    def register_strategy(cls, strategy: Type["Strategy"], name: str = None, override: bool = False):
-        name = name or strategy.name()
+    def register_strategy(cls, strategy_instance: Strategy, name: str = None, override: bool = False):
+        """
+        Registers a strategy instance.
+        """
+        name = name or strategy_instance.name()
         if override or name not in cls._strategies:
-            cls._strategies[name] = strategy
+            cls._strategies[name] = strategy_instance
 
     @classmethod
     def load_strategies_from_config(cls, path: str = os.getenv('OCR_CONFIG_PATH', 'config/strategies.yaml')):
-        strategies = cls._strategies
+        """
+        Loads strategies from a YAML configuration file.
+        """
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(path)))
         config_file_path = os.path.join(project_root, path)
 
@@ -92,18 +87,19 @@ class Strategy:
             module_path, class_name = strategy_class_path.rsplit('.', 1)
             module = importlib.import_module(module_path)
 
-            strategy = getattr(module, class_name)
-            strategy_instance = strategy()
+            strategy_cls = getattr(module, class_name)
+            strategy_instance = strategy_cls()
             strategy_instance.set_strategy_config(strategy_config)
-            
-            cls.register_strategy(strategy_instance, strategy_name)
-            print(f"Loaded strategy from {config_file_path} {strategy_name} [{strategy_class_path}]")
 
-        return strategies
+            cls.register_strategy(strategy_instance, strategy_name)
+            cls._strategy_config_map[strategy_name] = strategy_config
+            print(f"✅ Loaded strategy: {strategy_name} ({strategy_class_path})")
 
     @classmethod
-    def autodiscover_strategies(cls) -> Dict[str, Type]:
-        strategies = cls._strategies
+    def autodiscover_strategies(cls) -> Dict[str, Strategy]:
+        """
+        Auto-discovers and registers any strategy classes under text_extract_api.*.strategies.*
+        """
         for module_info in pkgutil.iter_modules():
             if not module_info.name.startswith("text_extract_api"):
                 continue
@@ -121,22 +117,20 @@ class Strategy:
                     continue
 
                 try:
-                    ocr_module = importlib.import_module(submodule_info.name)
+                    strategy_module = importlib.import_module(submodule_info.name)
                 except ImportError as e:
-                    print('Error loading strategy ' + submodule_info.name + ': ' + str(e))
+                    print(f"❌ Error importing strategy module '{submodule_info.name}': {e}")
                     continue
-                for attr_name in dir(ocr_module):
-                    attr = getattr(ocr_module, attr_name)
-                    if (isinstance(attr, type)
-                            and issubclass(attr, Strategy)
-                            and attr is not Strategy
-                            and attr.name() not in strategies
+
+                for attr_name in dir(strategy_module):
+                    attr = getattr(strategy_module, attr_name)
+                    if (
+                        isinstance(attr, type)
+                        and issubclass(attr, Strategy)
+                        and attr is not Strategy
                     ):
-                        strategies[attr.name()] = attr()
-                        print(f"Discovered strategy {attr.name()} from {submodule_info.name} [{module_info.name}]")
-
-
-        cls._strategies = strategies
-
-
-
+                        strategy_name = attr.name()
+                        if strategy_name not in cls._strategies:
+                            instance = attr()
+                            cls.register_strategy(instance, strategy_name)
+                            print(f"🔍 Auto-discovered strategy: {strategy_name} from {submodule_info.name}")
