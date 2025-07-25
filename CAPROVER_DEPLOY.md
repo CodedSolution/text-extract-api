@@ -9,9 +9,6 @@ When deploying this application to CapRover, you'll need to set the following en
 cap_redis_url=redis://srv-captain--text-extract-api-redis:6379/0
 cap_redis_cache_url=redis://srv-captain--text-extract-api-redis:6379/1
 cap_ollama_host=http://srv-captain--text-extract-api-ollama:11434
-cap_list_files_url=https://your-app-name.your-domain.com/storage/list
-cap_load_file_url=https://your-app-name.your-domain.com/storage/load
-cap_delete_file_url=https://your-app-name.your-domain.com/storage/delete
 ```
 
 ### Optional Environment Variables:

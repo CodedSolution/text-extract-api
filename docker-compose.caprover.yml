@@ -11,9 +11,6 @@ services:
       - REDIS_CACHE_URL=$$cap_redis_cache_url
       - OLLAMA_HOST=$$cap_ollama_host
       - STORAGE_PROFILE_PATH=/app/storage_profiles
-      - LIST_FILES_URL=$$cap_list_files_url
-      - LOAD_FILE_URL=$$cap_load_file_url
-      - DELETE_FILE_URL=$$cap_delete_file_url
       - REMOTE_API_URL=$$cap_remote_api_url
     volumes:
       - $$cap_appname-storage:/app/storage
@@ -33,9 +30,6 @@ services:
       - CELERY_RESULT_BACKEND=$$cap_redis_url
       - OLLAMA_HOST=$$cap_ollama_host
       - STORAGE_PROFILE_PATH=/app/storage_profiles
-      - LIST_FILES_URL=$$cap_list_files_url
-      - LOAD_FILE_URL=$$cap_load_file_url
-      - DELETE_FILE_URL=$$cap_delete_file_url
     volumes:
       - $$cap_appname-storage:/app/storage
       - $$cap_appname-uploads:/app/uploads
