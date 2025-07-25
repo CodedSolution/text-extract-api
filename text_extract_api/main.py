@@ -8,6 +8,7 @@ import ollama
 import redis
 from celery.result import AsyncResult
 from fastapi import FastAPI, Form, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from text_extract_api.celery_app import app as celery_app
@@ -29,9 +30,71 @@ def storage_profile_exists(profile_name: str) -> bool:
     return True
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Connect to Redis
 redis_url = os.getenv('REDIS_CACHE_URL', 'redis://redis:6379/1')
 redis_client = redis.StrictRedis.from_url(redis_url)
+
+@app.get("/")
+async def root():
+    """Root endpoint to check if the API is running"""
+    return {"message": "Text Extract API is running", "status": "healthy"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint to verify all services are working"""
+    health_status = {
+        "api": "healthy",
+        "redis": "unknown",
+        "ollama": "unknown",
+        "celery": "unknown"
+    }
+    
+    # Check Redis connection
+    try:
+        redis_client.ping()
+        health_status["redis"] = "healthy"
+    except Exception as e:
+        health_status["redis"] = f"unhealthy: {str(e)}"
+    
+    # Check Ollama connection
+    try:
+        ollama_host = os.getenv('OLLAMA_HOST', 'http://ollama:11434')
+        import requests
+        response = requests.get(f"{ollama_host}/api/version", timeout=5)
+        if response.status_code == 200:
+            health_status["ollama"] = "healthy"
+        else:
+            health_status["ollama"] = f"unhealthy: status {response.status_code}"
+    except Exception as e:
+        health_status["ollama"] = f"unhealthy: {str(e)}"
+    
+    # Check Celery workers
+    try:
+        inspect = celery_app.control.inspect()
+        active_workers = inspect.active()
+        if active_workers:
+            health_status["celery"] = "healthy"
+        else:
+            health_status["celery"] = "unhealthy: no active workers"
+    except Exception as e:
+        health_status["celery"] = f"unhealthy: {str(e)}"
+    
+    overall_healthy = all(status == "healthy" for status in health_status.values())
+    
+    return {
+        "status": "healthy" if overall_healthy else "degraded",
+        "services": health_status
+    }
 
 @app.post("/ocr")
 async def ocr_endpoint(
