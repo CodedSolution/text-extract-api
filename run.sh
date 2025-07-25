@@ -3,7 +3,7 @@
 echo "$DISABLE_LOCAL_OLLAMA"
 
 DISABLE_VENV="${DISABLE_VENV:-0}"
-DISABLE_LOCAL_OLLAMA="${DISABLE_LOCAL_OLLAMA:-0}"
+DISABLE_LOCAL_OLLAMA="${DISABLE_LOCAL_OLLAMA:-1}"  # Default to disabled since we're using external endpoint
 
 RED='\033[0;31m'
 CYAN='\033[0;36m'
@@ -34,10 +34,11 @@ fi
 set -a; source .env.localhost; set +a
 
 if [ "$DISABLE_LOCAL_OLLAMA" -eq 1 ]; then
-  echo "Local Ollama disabled by env \`DISABLE_LOCAL_OLLAMA=$DISABLE_LOCAL_OLLAMA\`"
+  echo "Local Ollama disabled - using external endpoint"
   echo "External Ollama should be listening on OLLAMA_HOST=$OLLAMA_HOST"
+  echo "Skipping local model downloads - models available at external endpoint"
 else
-  echo "Starting Ollama Server"
+  echo "Starting Local Ollama Server"
   ollama serve &
 
   echo "Pulling LLama3.1 model"
