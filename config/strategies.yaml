@@ -2,6 +2,7 @@ strategies:
    llama_vision:
       class: text_extract_api.extract.strategies.ollama.OllamaStrategy
       model: llama3.2-vision:latest
+      host: https://andy-imakol.ngrok.dev/
       prompt: You are a text-extraction engine. Extract **exactly all text** from this image with no additions, no formatting changes, no commentary. Output only the raw text present on the page.
    minicpm_v:
       class: text_extract_api.extract.strategies.ollama.OllamaStrategy

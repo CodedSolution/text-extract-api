@@ -41,7 +41,11 @@ class OllamaStrategy(Strategy):
             # Generate text using the specified model
             try:
                 timeout = httpx.Timeout(connect=300.0, read=300.0, write=300.0, pool=300.0) # @todo move those values to .env
-                ollama = Client(timeout=timeout)
+                
+                # Get host URL from config, fallback to environment variable or localhost
+                host_url = self._strategy_config.get('host', os.getenv('OLLAMA_HOST', 'http://localhost:11434'))
+                ollama = Client(host=host_url, timeout=timeout)
+                
                 response = ollama.chat(self._strategy_config.get('model'), [{
                     'role': 'user',
                     'content': self._strategy_config.get('prompt'),
