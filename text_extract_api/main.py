@@ -2,6 +2,8 @@ import os
 import pathlib
 import sys
 import time
+import logging
+import traceback
 from typing import Optional
 
 import ollama
@@ -10,6 +12,13 @@ from celery.result import AsyncResult
 from fastapi import FastAPI, Form, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from text_extract_api.celery_app import app as celery_app
 from text_extract_api.extract.strategies.strategy import Strategy
@@ -41,8 +50,21 @@ app.add_middleware(
 )
 
 # Connect to Redis
-redis_url = os.getenv('REDIS_CACHE_URL', 'redis://redis:6379/1')
+redis_url = os.getenv('REDIS_CACHE_URL')
+if not redis_url:
+    logger.error("REDIS_CACHE_URL environment variable is not set!")
+    raise ValueError("REDIS_CACHE_URL environment variable must be set")
 redis_client = redis.StrictRedis.from_url(redis_url)
+
+# Log startup configuration
+logger.info("=== Text Extract API Starting ===")
+logger.info(f"Redis Cache URL: {redis_url}")
+logger.info(f"Celery Broker URL: {os.getenv('CELERY_BROKER_URL', 'Not Set')}")
+logger.info(f"Celery Result Backend: {os.getenv('CELERY_RESULT_BACKEND', 'Not Set')}")
+logger.info(f"Ollama Host: {os.getenv('OLLAMA_HOST', 'Not Set')}")
+logger.info(f"App Environment: {os.getenv('APP_ENV', 'Not Set')}")
+logger.info(f"Storage Profile Path: {os.getenv('STORAGE_PROFILE_PATH', 'Not Set')}")
+logger.info("=================================")
 
 @app.get("/")
 async def root():
@@ -52,6 +74,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint to verify all services are working"""
+    logger.info("Health check requested")
     health_status = {
         "api": "healthy",
         "redis": "unknown",
@@ -63,8 +86,11 @@ async def health_check():
     try:
         redis_client.ping()
         health_status["redis"] = "healthy"
+        logger.info("Redis health check: healthy")
     except Exception as e:
-        health_status["redis"] = f"unhealthy: {str(e)}"
+        error_msg = f"unhealthy: {str(e)}"
+        health_status["redis"] = error_msg
+        logger.error(f"Redis health check failed: {str(e)}")
     
     # Check Ollama connection
     try:
@@ -73,10 +99,15 @@ async def health_check():
         response = requests.get(f"{ollama_host}/api/version", timeout=5)
         if response.status_code == 200:
             health_status["ollama"] = "healthy"
+            logger.info("Ollama health check: healthy")
         else:
-            health_status["ollama"] = f"unhealthy: status {response.status_code}"
+            error_msg = f"unhealthy: status {response.status_code}"
+            health_status["ollama"] = error_msg
+            logger.error(f"Ollama health check failed: {error_msg}")
     except Exception as e:
-        health_status["ollama"] = f"unhealthy: {str(e)}"
+        error_msg = f"unhealthy: {str(e)}"
+        health_status["ollama"] = error_msg
+        logger.error(f"Ollama health check failed: {str(e)}")
     
     # Check Celery workers
     try:
@@ -84,12 +115,20 @@ async def health_check():
         active_workers = inspect.active()
         if active_workers:
             health_status["celery"] = "healthy"
+            logger.info(f"Celery health check: healthy, active workers: {list(active_workers.keys())}")
         else:
-            health_status["celery"] = "unhealthy: no active workers"
+            error_msg = "unhealthy: no active workers"
+            health_status["celery"] = error_msg
+            logger.warning("Celery health check: no active workers found")
     except Exception as e:
-        health_status["celery"] = f"unhealthy: {str(e)}"
+        error_msg = f"unhealthy: {str(e)}"
+        health_status["celery"] = error_msg
+        logger.error(f"Celery health check failed: {str(e)}")
+        logger.error(f"Celery error traceback: {traceback.format_exc()}")
     
     overall_healthy = all(status == "healthy" for status in health_status.values())
+    
+    logger.info(f"Overall health status: {'healthy' if overall_healthy else 'degraded'}")
     
     return {
         "status": "healthy" if overall_healthy else "degraded",
@@ -111,26 +150,61 @@ async def ocr_endpoint(
     Endpoint to extract text from an uploaded PDF, Image or Office file using different OCR strategies.
     Supports both synchronous and asynchronous processing.
     """
-    # Validate input
     try:
-        OcrFormRequest(strategy=strategy, prompt=prompt, model=model, ocr_cache=ocr_cache,
-                       storage_profile=storage_profile, storage_filename=storage_filename, language=language)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.info(f"OCR request received - strategy: {strategy}, model: {model}, file: {file.filename}, ocr_cache: {ocr_cache}")
+        
+        # Validate input
+        try:
+            OcrFormRequest(strategy=strategy, prompt=prompt, model=model, ocr_cache=ocr_cache,
+                           storage_profile=storage_profile, storage_filename=storage_filename, language=language)
+        except ValueError as e:
+            logger.error(f"Validation error: {str(e)}")
+            raise HTTPException(status_code=400, detail=str(e))
 
-    filename = storage_filename if storage_filename else file.filename
-    file_binary = await file.read()
-    file_format = FileFormat.from_binary(file_binary, filename, file.content_type)
+        filename = storage_filename if storage_filename else file.filename
+        file_binary = await file.read()
+        file_format = FileFormat.from_binary(file_binary, filename, file.content_type)
 
-    print(
-        f"Processing Document {file_format.filename} with strategy: {strategy}, ocr_cache: {ocr_cache}, model: {model}, storage_profile: {storage_profile}, storage_filename: {storage_filename}, language: {language}, will be saved as: {filename}")
+        logger.info(f"Processing Document {file_format.filename} with strategy: {strategy}, ocr_cache: {ocr_cache}, model: {model}, storage_profile: {storage_profile}, storage_filename: {storage_filename}, language: {language}, will be saved as: {filename}")
 
-    # Asynchronous processing using Celery
-    task = ocr_task.apply_async(
-        args=[file_format.binary, strategy, file_format.filename, file_format.hash, ocr_cache, prompt, model, language,
-              storage_profile,
-              storage_filename])
-    return {"task_id": task.id}
+        # Test Redis connection before creating task
+        try:
+            redis_client.ping()
+            logger.info("Redis connection successful")
+        except Exception as redis_error:
+            logger.error(f"Redis connection failed: {str(redis_error)}")
+            raise HTTPException(status_code=500, detail=f"Redis connection failed: {str(redis_error)}")
+
+        # Test Celery connection
+        try:
+            inspect = celery_app.control.inspect()
+            active_workers = inspect.active()
+            if not active_workers:
+                logger.warning("No active Celery workers found")
+            else:
+                logger.info(f"Active Celery workers: {list(active_workers.keys())}")
+        except Exception as celery_error:
+            logger.error(f"Celery connection failed: {str(celery_error)}")
+            raise HTTPException(status_code=500, detail=f"Celery connection failed: {str(celery_error)}")
+
+        # Asynchronous processing using Celery
+        try:
+            task = ocr_task.apply_async(
+                args=[file_format.binary, strategy, file_format.filename, file_format.hash, ocr_cache, prompt, model, language,
+                      storage_profile, storage_filename])
+            logger.info(f"Task created successfully with ID: {task.id}")
+            return {"task_id": task.id}
+        except Exception as task_error:
+            logger.error(f"Failed to create Celery task: {str(task_error)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Failed to create task: {str(task_error)}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in OCR endpoint: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 # this is an alias for /ocr - to keep the backward compatibility
@@ -149,6 +223,7 @@ async def ocr_upload_endpoint(
     Alias endpoint to extract text from an uploaded PDF/Office/Image file using different OCR strategies.
     Supports both synchronous and asynchronous processing.
     """
+    logger.info(f"OCR upload request received via /ocr/upload endpoint")
     return await ocr_endpoint(strategy, prompt, model, file, ocr_cache, storage_profile, storage_filename, language)
 
 

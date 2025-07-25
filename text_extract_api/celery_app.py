@@ -7,16 +7,30 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.resolve()))
 
-load_dotenv(".env.localhost")
+# Load environment file based on APP_ENV
+app_env = os.getenv('APP_ENV', 'development')
+if app_env == 'production':
+    load_dotenv(".env.production")
+else:
+    load_dotenv(".env.localhost")
 
 import multiprocessing
 
 multiprocessing.set_start_method("spawn", force=True)
 
+# Get Redis URLs from environment variables
+broker_url = os.getenv('CELERY_BROKER_URL')
+backend_url = os.getenv('CELERY_RESULT_BACKEND')
+
+if not broker_url:
+    raise ValueError("CELERY_BROKER_URL environment variable must be set")
+if not backend_url:
+    raise ValueError("CELERY_RESULT_BACKEND environment variable must be set")
+
 app = Celery(
     "text_extract_api",
-    broker="redis://redis:6379/0",
-    backend="redis://redis:6379/0"
+    broker=broker_url,
+    backend=backend_url
 )
 
 # Get configuration values from environment or use defaults

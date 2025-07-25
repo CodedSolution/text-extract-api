@@ -10,8 +10,10 @@ from text_extract_api.extract.strategies.strategy import Strategy
 from text_extract_api.files.file_formats.file_format import FileFormat
 from text_extract_api.files.storage_manager import StorageManager
 
-# Connect to Redis
-redis_url = os.getenv('REDIS_CACHE_URL', 'redis://redis:6379/1')
+# Connect to Redis - require environment variable to be set
+redis_url = os.getenv('REDIS_CACHE_URL')
+if not redis_url:
+    raise ValueError("REDIS_CACHE_URL environment variable must be set")
 redis_client = redis.StrictRedis.from_url(redis_url)
 
 
