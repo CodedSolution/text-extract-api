@@ -28,12 +28,15 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* \
 
 WORKDIR /app
 
-# Copy the entire project structure first
-COPY . .
+# Copy only pyproject.toml first for better Docker layer caching
+COPY pyproject.toml ./
 
-# Install Python dependencies
+# Install Python dependencies (this layer will be cached if pyproject.toml doesn't change)
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir .
+
+# Copy the rest of the application code
+COPY . .
 
 # Make scripts executable
 RUN chmod +x /app/scripts/entrypoint.sh

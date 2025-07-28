@@ -1,20 +1,21 @@
-# CapRover App Configuration for Text Extract API
+# CapRover App Configuration for Text Extract API (Docling-Only Optimized Version)
 
 ## Environment Variables to Set in CapRover
 
-When deploying this application to CapRover, you'll need to set the following environment variables in your app settings:
+When deploying this optimized application to CapRover, you'll need to set the following environment variables in your app settings:
 
-### Required Environment Variables:
+### Required Template Variables:
 ```
 cap_redis_url=redis://srv-captain--text-extract-api-redis:6379/0
 cap_redis_cache_url=redis://srv-captain--text-extract-api-redis:6379/1
-cap_ollama_host=http://srv-captain--text-extract-api-ollama:11434
 ```
 
-### Optional Environment Variables:
+### Optional Template Variables:
 ```
 cap_remote_api_url=
 ```
+
+**Note**: This optimized version removes Ollama dependencies for faster deployment and lower resource usage.
 
 ## Deployment Steps:
 
@@ -43,10 +44,10 @@ cap_remote_api_url=
 
 ## Important Notes:
 
-- **Storage**: The app uses persistent volumes for storage, uploads, Redis data, and Ollama models
-- **Memory Requirements**: Ollama and the ML models require significant RAM (recommended: 4GB+ for basic models)
-- **First Startup**: Initial deployment will take longer as it downloads LLM models (llama3.1, llama3.2-vision, minicpm-v)
-- **Health Checks**: Ollama service includes health checks to ensure it's ready before other services start
+- **Storage**: The app uses persistent volumes for storage, uploads, and Redis data
+- **Memory Requirements**: Optimized version requires minimal RAM (recommended: 1-2GB)
+- **Fast Startup**: Deployment takes 2-3 minutes (no model downloads required)
+- **Docling Strategy**: Uses Docling for PDF text extraction - no AI models needed locally
 
 ## Accessing Your App:
 

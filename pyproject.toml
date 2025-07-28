@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "text_extract_api"
 version = "0.2.0"
-description = "Images and documents (PDF, Word, PPTX ...) extraction and parse API using state of the art modern OCRs + Ollama supported models. Anonymize documents. Remove PII. Convert any document or picture to structured JSON or Markdown"
+description = "Optimized PDF extraction API using Docling strategy with external AI endpoint support"
 authors = [
 ]
 license = "MIT"
@@ -13,35 +13,24 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "fastapi",
-    "easyocr",
     "celery",
     "redis",
-    "opencv-python-headless",
-    "pdf2image",
-    "ollama",
     "uvicorn[standard]",
     "requests",
     "python-multipart",
-    "pdftext",
-    "argparse",
-    "google-api-python-client",
-    "google-auth-httplib2",
-    "google-auth-oauthlib",
-    "transformers",
-    "accelerate",
-    "boto3",
     "Pillow",
     "python-magic==0.4.27",
-    "setuptools",   
+    "setuptools",
     "PyYAML",
-    "botocore",
-    "protobuf",
-    "opencv-python",
-    "numpy",
     "pydantic",
     "python-dotenv",
     "docling",
-    "docling-parse"
+    "docling-parse",
+    "pdf2image",
+    "boto3",
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib"
 ]
 [project.optional-dependencies]
 dev = [
