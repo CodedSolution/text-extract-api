@@ -4,6 +4,7 @@ from typing import Optional
 
 import ollama
 from ollama import Client
+import os
 import redis
 
 from text_extract_api.celery_app import app as celery_app
@@ -13,7 +14,9 @@ from text_extract_api.files.storage_manager import StorageManager
 
 # Connect to Redis - require environment variable to be set
 redis_url = os.getenv('REDIS_CACHE_URL')
-redis_client = redis.Redis.from_url(redis_url)
+if not redis_url:
+    raise ValueError("REDIS_CACHE_URL environment variable must be set")
+redis_client = redis.StrictRedis.from_url(redis_url)
 
 
 @celery_app.task(bind=True, time_limit=int(os.getenv('TASK_TIME_LIMIT', 1800)), soft_time_limit=int(os.getenv('TASK_SOFT_TIME_LIMIT', 1500)))
@@ -30,13 +33,14 @@ def ocr_task(
         storage_profile: Optional[str] = None,
         storage_filename: Optional[str] = None,
 ):
-    """
-    Celery task to perform OCR processing on a PDF/Office/image file.
-    """
+    
     # Initialize Ollama client with external endpoint
     ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
     ollama_client = Client(host=ollama_host)
-    
+
+"""
+    Celery task to perform OCR processing on a PDF/Office/image file.
+    """
     start_time = time.time()
 
     strategy = Strategy.get_strategy(strategy_name)
@@ -45,13 +49,12 @@ def ocr_task(
     self.update_state(state='PROGRESS', status="File uploaded successfully",
                       meta={'progress': 10})  # Example progress update
 
-    # Try to get from cache first
     extracted_text = None
     if ocr_cache:
-        print("Checking cache...")
-        extracted_text = redis_client.get(file_hash)
-        if extracted_text:
-            extracted_text = extracted_text.decode('utf-8')
+        cached_result = redis_client.get(file_hash)
+        if cached_result:
+            # Return cached result if available
+            extracted_text = cached_result.decode('utf-8')
 
     if extracted_text is None:
         print(f"Extracting text from file using strategy: {strategy.name()}")
@@ -94,15 +97,9 @@ def ocr_task(
             storage_filename = filename.replace('.', '_') + '.pdf'
 
         storage_manager = StorageManager(storage_profile)
-        storage_manager.save(file_name=storage_filename, content=extracted_text, dest_file_name=storage_filename)
+        storage_manager.save(filename, storage_filename, extracted_text)
 
-    self.update_state(state='SUCCESS',
-                      meta={'progress': 100, 'status': 'OCR Completed', 'extracted_text': extracted_text,
-                            'start_time': start_time,
-                            'elapsed_time': time.time() - start_time})  # Example progress update
+    self.update_state(state='DONE', meta={'progress': 100, 'status': 'Processing done!', 'start_time': start_time,
+                                          'elapsed_time': time.time() - start_time})
 
-    return {
-        'status': 'success',
-        'extracted_text': extracted_text,
-        'elapsed_time': time.time() - start_time
-    }
+    return extracted_text

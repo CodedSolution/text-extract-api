@@ -9,7 +9,6 @@ services:
       - CELERY_BROKER_URL=$$cap_redis_url
       - CELERY_RESULT_BACKEND=$$cap_redis_url
       - REDIS_CACHE_URL=$$cap_redis_cache_url
-      - OLLAMA_HOST=$$cap_ollama_host
       - STORAGE_PROFILE_PATH=/app/storage_profiles
       - REMOTE_API_URL=$$cap_remote_api_url
     volumes:
@@ -27,7 +26,6 @@ services:
       - APP_ENV=production
       - CELERY_BROKER_URL=$$cap_redis_url
       - CELERY_RESULT_BACKEND=$$cap_redis_url
-      - OLLAMA_HOST=$$cap_ollama_host
       - STORAGE_PROFILE_PATH=/app/storage_profiles
     volumes:
       - $$cap_appname-storage:/app/storage

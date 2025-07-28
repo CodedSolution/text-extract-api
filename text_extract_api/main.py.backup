@@ -232,7 +232,8 @@ class OllamaGenerateRequest(BaseModel):
     prompt: str
 
 
-# OllamaPullRequest removed - no longer needed for external Ollama endpoint
+class OllamaPullRequest(BaseModel):
+    model: str
 
 
 class OcrRequest(BaseModel):
@@ -361,8 +362,19 @@ async def delete_file(file_name: str, storage_profile: str = 'default'):
     return {"status": f"File {file_name} deleted successfully"}
 
 
-# /llm/pull endpoint removed - not needed for external Ollama endpoint
-# Models are managed on the external server at OLLAMA_HOST
+@app.post("/llm/pull")
+async def pull_llama(request: OllamaPullRequest):
+    """
+    Endpoint to pull the latest Llama model from the Ollama API.
+    """
+    print("Pulling " + request.model)
+    try:
+        response = ollama.pull(request.model)
+    except ollama.ResponseError as e:
+        print('Error:', e.error)
+        raise HTTPException(status_code=500, detail="Failed to pull Llama model from Ollama API")
+
+    return {"status": response.get("status", "Model pulled successfully")}
 
 
 @app.post("/llm/generate")
@@ -379,9 +391,9 @@ async def generate_llama(request: OllamaGenerateRequest):
     except ollama.ResponseError as e:
         print('Error:', e.error)
         if e.status_code == 404:
-            print("Error: Model not found on external endpoint")
-            # Model should be available on external endpoint - no local pulling
-        
+            print("Error: ", e.error)
+            ollama.pull(request.model)
+
         raise HTTPException(status_code=500, detail="Failed to generate text with Ollama API")
 
     generated_text = response.get("response", "")

@@ -13,7 +13,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "fastapi",
-    "celery",
+    "celery", 
     "redis",
     "uvicorn[standard]",
     "requests",
@@ -25,16 +25,15 @@ dependencies = [
     "pydantic",
     "python-dotenv",
     "docling",
-    "docling-parse",
+    "docling-parse", 
     "pdf2image",
     "boto3",
     "google-api-python-client",
-    "google-auth-httplib2",
+    "google-auth-httplib2", 
     "google-auth-oauthlib",
-    "ollama",
-    "numpy",
-    "opencv-python-headless",
-    "httpx"
+    "numpy",                    # Added back - docling needs this
+    "opencv-python-headless",   # Added back - pdf2image needs this
+    "poppler-utils"             # Added back - pdf processing needs this
 ]
 [project.optional-dependencies]
 dev = [
