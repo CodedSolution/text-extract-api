@@ -6,10 +6,14 @@ if [ "$APP_ENV" = "production" ]; then
    echo "Docling strategy ready for PDF extraction"
    
    if [ "$APP_TYPE" = "celery" ]; then
-      echo "Starting Celery worker..."
-      exec celery -A text_extract_api.celery_app worker --loglevel=info --pool=solo
+      echo "Starting Celery worker in production mode..."
+      echo "Celery Broker: $CELERY_BROKER_URL"
+      echo "Redis Cache: $REDIS_CACHE_URL"
+      # Wait for Redis to be ready
+      sleep 5
+      exec celery -A text_extract_api.celery_app worker --loglevel=info --pool=solo --concurrency=2
    else
-      echo "Starting FastAPI app..."
+      echo "Starting FastAPI app in production mode..."
       exec uvicorn text_extract_api.main:app --host 0.0.0.0 --port 8000
    fi
 else

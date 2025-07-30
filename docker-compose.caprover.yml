@@ -27,6 +27,7 @@ services:
       - APP_ENV=production
       - CELERY_BROKER_URL=$$cap_redis_url
       - CELERY_RESULT_BACKEND=$$cap_redis_url
+      - REDIS_CACHE_URL=$$cap_redis_cache_url
       - OLLAMA_HOST=$$cap_ollama_host
       - STORAGE_PROFILE_PATH=/app/storage_profiles
     volumes:
@@ -35,6 +36,7 @@ services:
     depends_on:
       - $$cap_appname-redis
     restart: unless-stopped
+    command: ["/app/scripts/entrypoint.sh"]
 
   $$cap_appname-redis:
     image: redis:7.2.4-alpine
