@@ -17,8 +17,9 @@ services:
       - $$cap_appname-uploads:/app/uploads
     depends_on:
       - $$cap_appname-redis
-      - $$cap_appname-celery
     restart: unless-stopped
+    # Use the robust self-contained entrypoint from Dockerfile
+    entrypoint: ["/app/entrypoint_robust.sh"]
 
   $$cap_appname-celery:
     build: .
@@ -36,7 +37,7 @@ services:
     depends_on:
       - $$cap_appname-redis
     restart: unless-stopped
-    # Use the robust self-contained entrypoint that's built into the image
+    # Use the robust self-contained entrypoint from Dockerfile
     entrypoint: ["/app/entrypoint_robust.sh"]
 
   $$cap_appname-redis:

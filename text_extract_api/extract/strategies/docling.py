@@ -1,6 +1,8 @@
 import tempfile
 
-from docling.document_converter import DocumentConverter
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling_core.types.doc.document import (  # Assuming a compatible Docling library or module
     DoclingDocument,
 )
@@ -53,9 +55,19 @@ class DoclingStrategy(Strategy):
         :param file_path: Path to the PDF file to be converted.
         :return: DoclingDocument instance.
         """
-        # Placeholder for actual conversion logic using the Docling API
         try:
-            converter = DocumentConverter()
+            # Optimized configuration: Enable table structure but disable OCR
+            pdf_options = PdfPipelineOptions()
+            pdf_options.do_ocr = False  # Critical: Disable OCR completely to avoid EasyOCR downloads
+            pdf_options.do_table_structure = True  # Enable table structure detection for proper table extraction
+            
+            # Create converter with table detection enabled but OCR disabled
+            converter = DocumentConverter(
+                format_options={
+                    InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_options)
+                }
+            )
+            
             docling_document = converter.convert(file_path).document
             return docling_document
         except Exception as e:
