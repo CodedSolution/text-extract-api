@@ -36,7 +36,8 @@ services:
     depends_on:
       - $$cap_appname-redis
     restart: unless-stopped
-    command: ["/app/scripts/entrypoint.sh"]
+    # Use the robust self-contained entrypoint that's built into the image
+    entrypoint: ["/app/entrypoint_robust.sh"]
 
   $$cap_appname-redis:
     image: redis:7.2.4-alpine
